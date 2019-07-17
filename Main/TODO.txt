@@ -1,0 +1,7 @@
+En stand-alone:
+
+	-Hacer bat
+	
+En config_files: 
+
+	-Habilitar beeper para end scan

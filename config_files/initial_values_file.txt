@@ -1,0 +1,11 @@
+curr_low:0
+curr_high:6
+sr:1E2
+t_on:5
+t_off:10
+initial_delay:2
+t_measure_high:3
+t_measure_low:6
+n_channels:10
+t_transfer_data:8
+csv_file_path:.\result_files\power_cycling_results.csv
