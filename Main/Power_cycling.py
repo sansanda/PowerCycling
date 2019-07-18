@@ -65,16 +65,16 @@ for line in initial_values:   #line will be each string in the previous array
         n_channels_temp = line[line.index('=')+1:]     #Multimeter number of channels that will be measuring the temperature
         print('Number of temperature channels:', n_channels_temp)
     if 'Voltage channels' in line:
-        voltageChannelsString = str(line[line.index('=')+1:]).replace("\n",'')     #Multimeter total number of channels enabled  
-        print('Total number of voltage channels:', voltageChannelsString)
+        voltageChannelsString = str(line[line.index('=')+1:]).replace("\n",'')     #Finds the string corresponding to the voltage channels and the number
+        print('Total number of voltage channels:', voltageChannelsString)          #.replace because the split introduce a new line after the match 
         _channels = voltageChannelsString.split(":", -1)
         nVoltageChannels = int(_channels[1]) - int(_channels[0]) + 1
         print(nVoltageChannels)
     if 'Temperature channels' in line:
-        temperatureChannelsString = str(line[line.index('=')+1:]).replace("\n",'')     #Multimeter total number of channels enabled  
-        print('Total number of temperature channels:', temperatureChannelsString)
-        _channels = temperatureChannelsString.split(":", -1)
-        nTemperatureChannels = int(_channels[1]) - int(_channels[0]) + 1        
+        temperatureChannelsString = str(line[line.index('=')+1:]).replace("\n",'')     #Now, in the case of temperature
+        print('Total number of temperature channels:', temperatureChannelsString)    #String similar to 1001:1012
+        _channels = temperatureChannelsString.split(":", -1)    #Divide the string into: 1001 and 1012
+        nTemperatureChannels = int(_channels[1]) - int(_channels[0]) + 1    #Substract the two values in order to have the total number of temperature channels  
         print(nTemperatureChannels)    
     if 'Time transfer data' in line:
         t_transfer_data = float(line[line.index('=')+1:])     #The seconds elapsed from the electronic load starts NOT conducting till the data is transfered
@@ -86,10 +86,10 @@ for line in initial_values:   #line will be each string in the previous array
         csv_file_path = line[line.index('=')+1:]    #Relative Path to the CSV file (results)
         print('File path:', csv_file_path)
 
-nChannels = nTemperatureChannels+nVoltageChannels
-
 initial_values_f.close()    #In order to avoid errors, the file is closed
 print('\n---------------------------------------------------------------')
+
+
 
 
 def check_time_parameters(_t_on, _t_off, _t_measure_high, _t_measure_low, _t_transfer_data):    
@@ -137,6 +137,7 @@ if check_time_parameters(t_on, t_off, t_measure_high, t_measure_low, t_transfer_
     exit()    #If any mentioned fact has happened, the program exits. 
 
 
+nChannels = nTemperatureChannels+nVoltageChannels    #Define the total number of channels
 
 #CREATE AND OPEN THE CSV FILE TO TRANSFR THE ACQUIRED DATA
 field_names = ['Number of cycles', 'Semicycle', 'Time Stamp']    #First and constant headers
@@ -229,9 +230,7 @@ def prepare_Scan(_n_total_channels,_nScansPerSemicicle):
     #Whether the first channel of the scan waits for the channel stimulus event to be satisfied before closing   
     multimeter.write('scan.bypass=scan.OFF')    
     
-    #Creates an scan with a fixed number of channels (voltage and temperature) 
-    #multimeter.write("scan.create('1001:10"+str(n_total_channels).zfill(2)+"','mydcvolts', '1013:1014', 'mythermocouple')")  
-    #multimeter.write("scan.create('1001:10"+str(nChannels).zfill(2)+"','mydcvolts')")
+    #Creates an scan with a fixed number of voltage channels and adds a scan for the temperature channels
     multimeter.write("scan.create('"+voltageChannelsString+"','mydcvolts')")
     multimeter.write("scan.add('"+temperatureChannelsString+"','mythermocouple')")
     
