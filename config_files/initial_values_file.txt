@@ -1,11 +1,24 @@
-curr_low:0
-curr_high:6
-sr:1E2
-t_on:5
-t_off:10
-initial_delay:2
-t_measure_high:3
-t_measure_low:6
-n_channels:10
-t_transfer_data:8
-csv_file_path:.\result_files\power_cycling_results.csv
+Current low=0
+
+Current high=5
+
+Slew Rate=1E2
+
+Time on=15
+
+Time off=30
+
+Initial delay=2
+
+Time measure high=13
+
+Time measure low=26
+
+Voltage channels=1001:1005
+Temperature channels=1013:1014
+
+Current Range=1
+*Low:0-6A, High:0-60A*
+Time transfer data=28
+
+Csv file path=.\result_files\power_cycling_results.csv
