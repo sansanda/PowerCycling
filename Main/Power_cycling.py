@@ -268,8 +268,8 @@ def read_multimeter_buffer_and_write_to_file(_csv_file_path, _n_total_channels, 
     print('Cycle {}:'.format(cycle_count), acq_data)
     
     #As the acq_data contains the two scans, it has to be separated. One scan= n_channels measures
-    acq_data_high = acq_data[:(_n_total_channels+2)]    #When current is high, one scan is made. As this scans is done first the array is divided from the index 0 to n_channels.
-    acq_data_low = acq_data[(_n_total_channels+2):]    #When current is low, the other scans is made. 
+    acq_data_high = acq_data[:(_n_total_channels)]    #When current is high, one scan is made. As this scans is done first the array is divided from the index 0 to n_channels.
+    acq_data_low = acq_data[(_n_total_channels):]    #When current is low, the other scans is made. 
     
     #Other values are useful to store (Number of cycles done, semicycle status, and the time stamp)
     const_high = [_cycle_count, 1, tStamps_High]    #Both time Stamps are defined in start_scan_multimeter as global variables
