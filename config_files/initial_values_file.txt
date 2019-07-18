@@ -1,3 +1,7 @@
+Electronic Load GPIBAddr=5
+
+Keithley 3706 GPIBAddr=25
+
 Current low=0
 
 Current high=5
@@ -14,8 +18,9 @@ Time measure high=13
 
 Time measure low=26
 
-Voltage channels=1001:1005
+Voltage channels=1001:1012
 Temperature channels=1013:1014
+Current channel=1015:1015
 
 Current Range=1
 *Low:0-6A, High:0-60A*
