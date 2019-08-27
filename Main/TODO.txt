@@ -5,3 +5,11 @@ En stand-alone:
 En config_files: 
 
 	-Habilitar beeper para end scan
+	
+	
+	
+DELETE TIMESTAMP¿?¿ 2 LLOCS....
+
+CURR_LOW FLOAT()
+CURR_HIGH FLOAT()
+CURR_RANGE INT()!!!!!!!!

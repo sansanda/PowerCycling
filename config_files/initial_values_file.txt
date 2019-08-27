@@ -2,21 +2,28 @@ Electronic Load GPIBAddr=5
 
 Keithley 3706 GPIBAddr=25
 
-Current low=0
+Current low=0.1
 
 Current high=5
 
 Slew Rate=1E2
 
 Time on=15
+*Time on=5
 
 Time off=30
+*Time off=5
 
 Initial delay=2
 
 Time measure high=13
+*Time measure high=3
 
 Time measure low=26
+*Time measure low=3
+
+Time transfer data=28
+*Time transfer data=4
 
 Voltage channels=1001:1012
 Temperature channels=1013:1014
@@ -24,6 +31,5 @@ Current channel=1015:1015
 
 Current Range=1
 *Low:0-6A, High:0-60A*
-Time transfer data=28
 
 Csv file path=.\result_files\power_cycling_results.csv
