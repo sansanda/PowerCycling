@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['Power_cycling.py'],
-             pathex=['C:\\Users\\mespower\\eclipse-workspace\\Power_cycling\\Main'],
+             pathex=['C:\\Users\\mespower\\eclipse-workspace\\Power_cycling'],
              binaries=[],
              datas=[],
              hiddenimports=[],
