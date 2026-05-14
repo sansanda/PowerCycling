@@ -414,7 +414,7 @@ try:
     
     
     #OPEN A THREAD TO ALLOW THE STOP BUTTON TO RUN IN PARALEL THE CODE
-    stop_thread = threading.Thread(target=emergency_stop())
+    stop_thread = threading.Thread(target=emergency_stop)
     #It is continually running independently the other code, so whenever the space bar is pressed, it will be registered
     stop_thread.start()    #The thread is initialized
 
