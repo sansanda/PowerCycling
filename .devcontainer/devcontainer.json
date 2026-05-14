@@ -1,0 +1,19 @@
+{
+    "name": "PowerCycling",
+
+    "dockerComposeFile": "../docker-compose.yml",
+
+    "service": "powercycling",
+
+    "workspaceFolder": "/app",
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-azuretools.vscode-docker"
+            ]
+        }
+    }
+}
