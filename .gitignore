@@ -1,8 +1,65 @@
-Test_Files
-Main/build/
-Main/dist/
-.idea
-*.iml
-venv/
-.venv/
+```gitignore id="7p6jfr"
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
 
+# Virtual environments
+.venv/
+venv/
+env/
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# Environment variables
+.env
+
+# Docker
+*.pid
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Type checking
+.mypy_cache/
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Measurement / lab data
+data/
+measurements/
+exports/
+
+# Binary captures
+*.bin
+*.raw
+*.dat
+
+# NI VISA / instrument dumps
+*.tdms
+```
