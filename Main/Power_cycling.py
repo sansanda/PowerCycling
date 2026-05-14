@@ -1,122 +1,40 @@
-'''
+"""
 Created on 2 jul. 2019
 
-@author: mespower
-'''
-# if __name__ == '__main__':
-#     pass
-
-
-                                #POWER CYCLING SCRIPT
+@author: sansanda
+"""
 
 import visa
 import threading 
 import sys
 import csv_connection
+from Utilities.readers.file_readers import read_config_file
+from Utilities.readers.parameters_readers import read_time_parameters, read_current_parameters, read_gpib_addrs, \
+    read_channel_parameters, read_file_parameters
 from Utilities.validators.valid_parameters import valid_time_parameters
 from Utilities.validators.validators import validate_time_parameters
 
-#DEFINING TIME CONSTANTS
-T_OFF_MIN = 2
-T_MEASURE_LOW_MIN = 0.5
-T_TRANSFER_DATA_MIN = 1.5
-T_ON_MIN = 1
-T_MEASURE_HIGH_MIN = 0.5
 
+config = read_config_file("./config_files/initial_values_file.txt")
 
-#OPEN THE FILE THAT CONTAINS THE INITIALS VALUES
-initial_values_f  = open('.\config_files\initial_values_file.txt', "r")    #Opening the file with a relative path, as readers ('r')
-initial_values = initial_values_f.readlines()    #Read the file: Array of strings
-
-for line in initial_values:   #line: each string in the previous array 
-    #Define the file variables in the script
-    #The file configuration is: VARIABLE=VALUE
-    #In order to find the values, we memorize all the characters after the index of the '='
-    if  line.startswith("*"):   #To comment something in the file write: *
-        print('Skipping comment:')
-        continue
-    if 'Current low' in line:    #Search where is curr_low in the file, just in case the order of the values changes
-        curr_low = float(line[line.index('=')+1:])    #Impose the value of the low current level
-        print('Current low is:', curr_low, 'A')
-    if 'Current high' in line:
-        curr_high = float(line[line.index('=')+1:])   #Impose the value of the high current level
-        print('Current high is:', curr_high, 'A')
-    if 'Slew Rate' in line:
-        sr = float(line[line.index('=')+1:])    #Slew rate
-        print('Slew Rate is:', sr) 
-    if 'Time on' in line:
-        t_on = float(line[line.index('=')+1:])    #Set up the seconds when the electronic load is conducting
-        print('Time on:', t_on, 's')
-    if 'Time off' in line:
-        t_off = float(line[line.index('=')+1:])   #Set up the seconds when the electronic load is NOT conducting
-        print('Time off:', t_off, 's')
-    if 'Initial delay' in line:
-        initial_delay = float(line[line.index('=')+1:])   #Initial time, where the current is in its lower value.
-        print('Initial delay is:', initial_delay, 's')
-    if 'Time measure high' in line:
-        t_measure_high = float(line[line.index('=')+1:])   #The seconds elapsed from the electronic load starts conducting till the multimeter measures. 
-        print('Measure time on is:', t_measure_high, 's')
-    if 'Time measure low' in line:
-        t_measure_low = float(line[line.index('=')+1:])   #The seconds elapsed from the electronic load starts NOT conducting till the multimeter measures. 
-        print('Measure time off is:', t_measure_low, 's')
-    if 'Number voltage channels' in line:
-        n_channels_volt = line[line.index('=')+1:]     #Multimeter number of channels that will be measuring the voltage
-        print('Number of voltage channels:', n_channels_volt)
-    if 'Number temperature channels' in line:
-        n_channels_temp = line[line.index('=')+1:]     #Multimeter number of channels that will be measuring the temperature
-        print('Number of temperature channels:', n_channels_temp)
-    if 'Voltage channels' in line:
-        voltageChannelsString = str(line[line.index('=')+1:]).replace("\n",'')     #Finds the string corresponding to the voltage channels and the number
-        print('Total number of voltage channels:', voltageChannelsString)          #.replace because the split introduce a new line after the match 
-        _channels = voltageChannelsString.split(":", -1)
-        nVoltageChannels = int(_channels[1]) - int(_channels[0]) + 1
-    if 'Temperature channels' in line:
-        temperatureChannelsString = str(line[line.index('=')+1:]).replace("\n",'')     #Now, in the case of temperature
-        print('Total number of temperature channels:', temperatureChannelsString)    #String similar to 1001:1012
-        _channels = temperatureChannelsString.split(":", -1)    #Divide the string into: 1001 and 1012
-        nTemperatureChannels = int(_channels[1]) - int(_channels[0]) + 1    #Substract the two values in order to have the total number of temperature channels    
-    if 'Current channel' in line:
-        currentChannelsString = str(line[line.index('=')+1:]).replace("\n",'')     #Now, in the case of current
-        print('Total number of current channels:', currentChannelsString)    #String similar to 1001:1001
-        _channels = currentChannelsString.split(":", -1)    #Divide the string into: 1001 and 1012
-        nCurrentChannels = int(_channels[1]) - int(_channels[0]) + 1    #Substract the two values in order to have the total number of temperature channels
-    if 'Time transfer data' in line:
-        t_transfer_data = float(line[line.index('=')+1:])     #The seconds elapsed from the electronic load starts NOT conducting till the data is transfered
-        print('Moment to transfer the data (high and low measure):', t_transfer_data, 's')
-    if 'Current Range' in line:
-        curr_rang = float(line[line.index('=')+1:])     #Set the desired current range (LOW (0-6A) or HIGH(0-60A))
-        print('Current Rang:', curr_rang, 'A')
-    if 'Csv file path' in line:
-        csv_file_path = line[line.index('=')+1:]    #Relative Path to the CSV file (results)
-        print('File path:', csv_file_path)
-    if 'Electronic Load GPIBAddr' in line:
-        electronic_load_GPIBAddr = int(line[line.index('=')+1:])    #Electronic load GPIB address
-        print('Electronic Load GPIBAddr:', electronic_load_GPIBAddr)
-    if 'Keithley 3706 GPIBAddr' in line:
-        multimeter_GPIBAddr = int(line[line.index('=')+1:])    #Keithley multimeter GPIB address
-        print('Keithley 3706 GPIBAddr:', multimeter_GPIBAddr)
-        
-
-initial_values_f.close()    #In order to avoid errors, the file is closed
-print('\n---------------------------------------------------------------')
-
-
+time_parameters = read_time_parameters(config)
+current_parameters = read_current_parameters(config)
+gpib_addrs = read_gpib_addrs(config)
+channel_parameters = read_channel_parameters(config)
+file_parameters = read_file_parameters(config)
 
 #Check if all the times are OK
 if not validate_time_parameters(time_parameters,
                                 valid_time_parameters):
-    exit()    #If any mentioned fact has happened, the program exits. 
+    exit()    #If any mentioned fact has happened, the program exits.
 
-
-#Define the total number of channels
-nChannels = nTemperatureChannels + nVoltageChannels + nCurrentChannels      
 
 #CREATE AND OPEN THE CSV FILE TO TRANSFR THE ACQUIRED DATA
 field_names = ['Number of cycles', 'Semicycle']    #Create an array of constant headers
-for channel in range(1, nChannels+1):    #Headers depend on the number of channels
+for channel in range(1, channel_parameters['number_total_channels']+1):    #Headers depend on the number of channels
     field_names.append(str(channel))   #Append the channels after the constant headers
         
-csv_connection.create_csv_file(csv_file_path, field_names)    #Open the csv file and write the array of headers
+csv_connection.create_csv_file(file_parameters['csv_file_path'], field_names)    #Open the csv file and write the array of headers
 
 #---------------------------------------------------------------------------------------------
 
@@ -129,7 +47,7 @@ stop = 0    #Boolean in order to stop the electronic load whenever necessary.
 #DEFINING THE BUFFER CHARACTERISTICS
 nScansPerSemicicle = 2    #Number of scans per cycle: -Measure when current is high, -Measure when current is low
 #One Scan=Measure of all channels
-bufferSize = nScansPerSemicicle*(nChannels)   #Capacity of the buffer will be the number of channels times the number of scans
+bufferSize = nScansPerSemicicle*(channel_parameters['number_total_channels'])   #Capacity of the buffer will be the number of channels times the number of scans
 #The buffer will be emptied each cycle
 bufferName = "reading_buffer"
 
@@ -138,10 +56,10 @@ rm = visa.ResourceManager()
 
 
 #COMMUTICATE WITH THE ELECTRONIC LOAD 
-electronic_load = rm.open_resource('GPIB0::'+str(electronic_load_GPIBAddr)+'::INSTR')   #Assign a variable to the Electronic load by its address
+electronic_load = rm.open_resource('GPIB0::'+str(gpib_addrs['electronic_load'])+'::INSTR')   #Assign a variable to the Electronic load by its address
 
 #COMMUTICATE WITH KEITHLEY MULTIMETER
-multimeter = rm.open_resource('GPIB0::'+str(multimeter_GPIBAddr)+'::INSTR')   #Assign a variable to the multimeter by its address
+multimeter = rm.open_resource('GPIB0::'+str(gpib_addrs['multimeter'])+'::INSTR')   #Assign a variable to the multimeter by its address
 
 
 #SENDING THE FIRST COMMANDS TO CONFIGURE THE ELECTRONIC LOAD
@@ -149,9 +67,9 @@ electronic_load.write('*CLS')    #Clear Status Command
 electronic_load.write('*RST')    #Reset Command 
 electronic_load.write('TRIG:SOUR BUS')    #Source triggeR will be send via bus
 electronic_load.write('MODE:CURR')    #Set the operating mode: Current Mode (CC)
-electronic_load.write('CURR:RANG {}'.format(curr_rang))    #Low range current (0A-6A), High range current (0A-60A)
-electronic_load.write('CURR:SLEW {}'.format(sr))    #The value of the Slew Rate in the file is imposed on the instrument 
-electronic_load.write('CURR {}'.format(curr_low))    #The value of the low current is established on the instrument
+electronic_load.write('CURR:RANG {}'.format(current_parameters['current_range']))    #Low range current (0A-6A), High range current (0A-60A)
+electronic_load.write('CURR:SLEW {}'.format(current_parameters['slew_rate']))    #The value of the Slew Rate in the file is imposed on the instrument
+electronic_load.write('CURR {}'.format(current_parameters['current_low']))    #The value of the low current is established on the instrument
 electronic_load.write('INPUT ON')    #Switch on electronic load
 
 
@@ -166,18 +84,18 @@ multimeter.write('dmm.func = dmm.DC_VOLTS')    #Set measurement function: Voltag
 multimeter.write('dmm.nplc=1')    #The integration rate in line cycles for the DMM for the function selected by dmm.func.
 multimeter.write('dmm.range=10')    #Set Range
 multimeter.write("dmm.configure.set('mydcvolts')")    #Save Configuration
-multimeter.write("dmm.setconfig('"+voltageChannelsString+"','mydcvolts')")
+multimeter.write("dmm.setconfig('"+channel_parameters['voltage_channels_string']+"','mydcvolts')")
 
 #Set current configuration (one voltage channel reserved to measure the current)
 multimeter.write("dmm.configure.set('mycurrent')")    #Save Configuration
-multimeter.write("dmm.setconfig('"+currentChannelsString+"','mycurrent')")
+multimeter.write("dmm.setconfig('"+channel_parameters['current_channels_string']+"','mycurrent')")
 
 #Set temperature configuration
 multimeter.write('dmm.func = "temperature"')    #Set measurement function: Temperature
 multimeter.write('dmm.transducer = dmm.TEMP_THERMOCOUPLE')    #Type of transducer: Thermocouple
 multimeter.write('dmm.thermocouple = dmm.THERMOCOUPLE_K')    #Type of thermocouple: K
 multimeter.write("dmm.configure.set('mythermocouple')")    #Save Configuration   
-multimeter.write("dmm.setconfig('"+temperatureChannelsString+"','mythermocouple')")    #Assign configuration to channels
+multimeter.write("dmm.setconfig('"+channel_parameters['temperature_channels_string']+"','mythermocouple')")    #Assign configuration to channels
 
 
 try:        
@@ -198,9 +116,9 @@ try:
         multimeter.write('scan.bypass=scan.OFF')    
         
         #Creates an scan with a fixed number of voltage channels and adds a scan for the temperature channels
-        multimeter.write("scan.create('"+voltageChannelsString+"','mydcvolts')")
-        multimeter.write("scan.add('"+temperatureChannelsString+"','mythermocouple')")
-        multimeter.write("scan.add('"+currentChannelsString+"','mycurrent')")
+        multimeter.write("scan.create('"+channel_parameters['voltage_channels_string']+"','mydcvolts')")
+        multimeter.write("scan.add('"+channel_parameters['temperature_channels_string']+"','mythermocouple')")
+        multimeter.write("scan.add('"+channel_parameters['current_channels_string']+"','mycurrent')")
         
         
         #Prepares the scan to be waiting for a trigger
@@ -263,7 +181,7 @@ try:
         if stop == 0: #Nobody has pressed the stop button 
                     
             make_buffer(bufferSize)  
-            prepare_Scan(nChannels,nScansPerSemicicle)
+            prepare_Scan(channel_parameters['number_total_channels'],nScansPerSemicicle)
             
                   
             global cycle_count    #As cycle_count is not an argument of the function, the variable must be global
@@ -294,23 +212,33 @@ try:
         
     
     def trg_down(_curr_low,_curr_high, _t_on, _t_off, _t_measure_high, _t_measure_low, _t_transfer_data):
-        '''
-        This function sends triggers to the electronic load in order to come down the current from the high 
+        """
+        This function sends triggers to the electronic load in order to come down the current from the high
         value to the low value. Then the current remains in the lower state until the time is finished.
-        It will be continuously running, unless the stop button is pulsed. Moreover, in a chosen time, 
+        It will be continuously running, unless the stop button is pulsed. Moreover, in a chosen time,
         the function 'send trigger' is called, so the measures corresponding to 1 scan, will be registered.
-        '''
+        """
         
         #Timers
-        #Configure a timer that calls the function trg_up (when the _t_off finishes). 
-        timer_off = threading.Timer(_t_off, trg_up, [_curr_low,_curr_high, _t_on, _t_off, _t_measure_high, _t_measure_low, _t_transfer_data])
+        #Configure a timer that calls the function trg_up (when the _t_off finishes).
+
+        timer_off = threading.Timer(
+            _t_off,
+            trg_up,
+            [_curr_low,_curr_high, _t_on, _t_off, _t_measure_high, _t_measure_low, _t_transfer_data]
+        )
         #The two functions (trg_up and trg_down) will be calling each other for ever and ever, except someone pushes the stop button (=space bar)
         #Another timer to claim that the measures will be done at a chosen time: t_measure_on, when the current is low.
         timer_measure_low = threading.Timer(_t_measure_low, start_scan_multimeter)
         
         #In this case, when the cycle has finished and the current is low, the store data (two scans) in the buffer has to be transfered via GPIB.
         #That is for releasing the buffer capacity  
-        timer_transfer = threading.Timer(_t_transfer_data, read_multimeter_buffer_and_write_to_file, [csv_file_path, nChannels, cycle_count])
+        timer_transfer = threading.Timer(
+            _t_transfer_data,
+            read_multimeter_buffer_and_write_to_file,
+            [file_parameters['csv_file_path'], channel_parameters['number_total_channels'],
+             cycle_count]
+        )
     
       
         if stop == 0:
@@ -364,9 +292,19 @@ try:
             
         #To stop the program 'space bar' and then 'enter' must be pressed in the console!  
 
-
     #TIMER WITH A INITIAL DELAY TO START THE PROGRAM   
-    timer_initial = threading.Timer(initial_delay, trg_up, [curr_low, curr_high, t_on, t_off, t_measure_high, t_measure_low, t_transfer_data]) 
+    timer_initial = threading.Timer
+    (
+        time_parameters['initial_delay'],
+        trg_up,
+        [current_parameters['curr_low'],
+         current_parameters['curr_high'],
+         time_parameters['t_on'],
+         time_parameters['t_off'],
+         time_parameters['t_measure_high'],
+         time_parameters['t_measure_low'],
+         time_parameters['t_transfer_data']]
+    )
     #The initial timer is created to prevent unwanted transients or similar incidents
     #It allows the trg_up function to start running 
     timer_initial.start()    #The timer is started 
@@ -374,7 +312,8 @@ try:
     
     #OPEN A THREAD TO ALLOW THE STOP BUTTON TO RUN IN PARALEL THE CODE
     stop_thread = threading.Thread(target=emergency_stop)
-    #It is continually running independently the other code, so whenever the space bar is pressed, it will be registered
+    # It is continually running independently the other code,
+    # so whenever the space bar is pressed, it will be registered
     stop_thread.start()    #The thread is initialized
 
 except visa.VisaIOError as e:
