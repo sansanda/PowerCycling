@@ -13,8 +13,8 @@ import visa
 import threading 
 import sys
 import csv_connection
-from tkinter import messagebox
-
+from Utilities.validators.valid_parameters import valid_time_parameters
+from Utilities.validators.validators import validate_time_parameters
 
 #DEFINING TIME CONSTANTS
 T_OFF_MIN = 2
@@ -102,50 +102,9 @@ print('\n---------------------------------------------------------------')
 
 
 
-
-def check_time_parameters(_t_on, _t_off, _t_measure_high, _t_measure_low, _t_transfer_data):    
-    '''
-    This function checks whether the times are coherent. It returns an error if any of the 
-    following sentences happen, as well as a reporting message.
-    '''
-    error = False    #Initial error status=False
-    
-    if _t_on < T_ON_MIN:
-        error = True
-        messagebox.showerror(message="t_on must be bigger than"+str(T_ON_MIN), title="Time Definition Error")
-    if _t_off < T_OFF_MIN:
-        error = True
-        messagebox.showerror(message="t_off must be bigger than"+str(T_OFF_MIN), title="Time Definition Error")
-    if _t_measure_high < T_MEASURE_HIGH_MIN:
-        error = True
-        messagebox.showerror(message="t_measure_high must be bigger than"+str(T_MEASURE_HIGH_MIN), title="Time Definition Error")   
-    if _t_measure_low < T_MEASURE_LOW_MIN:
-        error = True
-        messagebox.showerror(message="t_measure_low must be bigger than"+str(T_MEASURE_LOW_MIN), title="Time Definition Error")  
-    if _t_transfer_data < T_TRANSFER_DATA_MIN:
-        error = True
-        messagebox.showerror(message="t_transfer_data must be bigger than"+str(T_TRANSFER_DATA_MIN), title="Time Definition Error")  
-    if t_on < t_measure_high:
-        error = True
-        messagebox.showerror(message="t_on must be bigger than t_measure_high", title="Time Definition Error")  
-    if t_off < t_measure_low:
-        error = True
-        messagebox.showerror(message="t_off must be bigger than t_measure_low", title="Time Definition Error")  
-    if t_off < t_transfer_data:
-        error = True
-        messagebox.showerror(message="t_off must be bigger than t_transfer_data", title="Time Definition Error")  
-    if t_transfer_data < t_measure_low:
-        error = True
-        messagebox.showerror(message="t_transfer_data must be bigger than t_measure_low", title="Time Definition Error")
-    if t_on<0 or t_off<0 or t_measure_high<0 or t_measure_low<0 or t_transfer_data<0:    #Negative times 
-        error = True
-        messagebox.showerror(message="Times must be positive", title="Time Definition Error")
-    
-    return error
-
-
 #Check if all the times are OK
-if check_time_parameters(t_on, t_off, t_measure_high, t_measure_low, t_transfer_data)==True:
+if not validate_time_parameters(time_parameters,
+                                valid_time_parameters):
     exit()    #If any mentioned fact has happened, the program exits. 
 
 
