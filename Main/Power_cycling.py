@@ -7,6 +7,7 @@ Created on 2 jul. 2019
 import visa
 import threading 
 import sys
+
 import csv_connection
 from Utilities.readers.file_readers import read_config_file
 from Utilities.readers.parameters_readers import read_time_parameters, read_current_parameters, read_gpib_addrs, \
@@ -316,17 +317,35 @@ try:
     # so whenever the space bar is pressed, it will be registered
     stop_thread.start()    #The thread is initialized
 
-except visa.VisaIOError as e:
-#except SomeException:
+except VisaIOError as e:
+
+    print("VISA ERROR")
     print(e.args)
-    print(rm.last_status)
-    print(rm.visalib.last_status)
-    
-    if rm.last_status == visa.constants.StatusCode.error_resource_busy:
-        print("The port is busy!")
-  
-    
-    print('holiiiiiiiiiiiiiiiiiiiiii')
-    electronic_load.write('INPUT OFF')
+
+    try:
+        print("rm.last_status:", rm.last_status)
+        print("rm.visalib.last_status:", rm.visalib.last_status)
+    except Exception:
+        print("Unable to read VISA status")
+
+    # Resource busy
+    if e.error_code == visa.constants.StatusCode.error_resource_busy:
+        print("The VISA resource is busy!")
+
+    # Timeout
+    elif e.error_code == visa.constants.StatusCode.error_timeout:
+        print("VISA timeout detected!")
+
+    # Generic VISA error
+    else:
+        print(f"Unhandled VISA error: {e.error_code}")
+
+    # Safe shutdown
+    try:
+        electronic_load.write('INPUT OFF')
+        print("Electronic load disabled")
+    except Exception as shutdown_error:
+        print("Unable to disable electronic load")
+        print(shutdown_error)
     
 

@@ -3,3 +3,6 @@ Main/build/
 Main/dist/
 .idea
 *.iml
+venv/
+.venv/
+
