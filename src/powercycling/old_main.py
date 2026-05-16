@@ -9,11 +9,11 @@ import threading
 import sys
 
 import csv_connection
-from Utilities.readers.file_readers import read_config_file
-from Utilities.readers.parameters_readers import read_time_parameters, read_current_parameters, read_gpib_addrs, \
+from src.powercycling.utilities.readers.file_readers import read_config_file
+from src.powercycling.utilities.readers.parameters_readers import read_time_parameters, read_current_parameters, read_gpib_addrs, \
     read_channel_parameters, read_file_parameters
-from Utilities.validators.valid_parameters import valid_time_parameters
-from Utilities.validators.validators import validate_time_parameters
+from src.powercycling.utilities.validators.valid_parameters import valid_time_parameters
+from src.powercycling.utilities.validators.validators import validate_time_parameters
 
 
 config = read_config_file("./config_files/initial_values_file.txt")
