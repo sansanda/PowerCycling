@@ -7,6 +7,7 @@ Created on 15 jul. 2019
 #CSV file
 
 import csv
+import os
 from csv import Error
 
         

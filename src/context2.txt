@@ -4,26 +4,26 @@ Keithley 3706 GPIBAddr=25
 
 Current low=0.1
 
-Current high=5
+Current high=1
 
 Slew Rate=1E2
 
-Time on=15
-*Time on=5
+*Time on=15
+Time on=5
 
-Time off=30
-*Time off=5
+*Time off=30
+Time off=5
 
 Initial delay=2
 
-Time measure high=13
-*Time measure high=3
+*Time measure high=13
+Time measure high=3
 
-Time measure low=26
-*Time measure low=3
+*Time measure low=26
+Time measure low=3
 
-Time transfer data=28
-*Time transfer data=4
+*Time transfer data=28
+Time transfer data=4
 
 Voltage channels=1001:1012
 Temperature channels=1013:1014
