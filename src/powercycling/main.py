@@ -5,7 +5,7 @@ Created on 2 jul. 2019
 
 requires python 3.11.6
 
-t
+
 """
 
 import logging
@@ -74,6 +74,8 @@ electronic_load = rm.open_resource('GPIB0::'+str(gpib_addrs['electronic_load'])+
 
 #COMMUTICATE WITH KEITHLEY MULTIMETER
 multimeter = rm.open_resource('GPIB0::'+str(gpib_addrs['multimeter'])+'::INSTR')   #Assign a variable to the multimeter by its address
+multimeter.timeout = 15000
+multimeter_lock = threading.Lock()
 
 
 #SENDING THE FIRST COMMANDS TO CONFIGURE THE ELECTRONIC LOAD
@@ -89,27 +91,28 @@ electronic_load.write('INPUT ON')    #Switch on electronic load
 
 
 #SENDING THE FIRST COMMANDS TO CONFIGURE KEITHLEY MULTIMETER
-multimeter.write('reset()')    #Reset
-multimeter.write('localnode.prompts = 0')    #The command messages do not generate prompts in console
-multimeter.write('localnode.prompts4882 = 0')    #Disable the prompts for the GPIB
+with multimeter_lock:
+    multimeter.write('reset()')    #Reset
+    multimeter.write('localnode.prompts = 0')    #The command messages do not generate prompts in console
+    multimeter.write('localnode.prompts4882 = 0')    #Disable the prompts for the GPIB
 
-#Set voltage configuration
-multimeter.write('dmm.func = dmm.DC_VOLTS')    #Set measurement function: Voltage
-multimeter.write('dmm.nplc=1')    #The integration rate in line cycles for the DMM for the function selected by dmm.func.
-multimeter.write('dmm.range=10')    #Set Range
-multimeter.write("dmm.configure.set('mydcvolts')")    #Save Configuration
-multimeter.write("dmm.setconfig('"+channel_parameters['voltage_channels_string']+"','mydcvolts')")
+    #Set voltage configuration
+    multimeter.write('dmm.func = dmm.DC_VOLTS')    #Set measurement function: Voltage
+    multimeter.write('dmm.nplc=1')    #The integration rate in line cycles for the DMM for the function selected by dmm.func.
+    multimeter.write('dmm.range=10')    #Set Range
+    multimeter.write("dmm.configure.set('mydcvolts')")    #Save Configuration
+    multimeter.write("dmm.setconfig('"+channel_parameters['voltage_channels_string']+"','mydcvolts')")
 
-#Set current configuration (one voltage channel reserved to measure the current)
-multimeter.write("dmm.configure.set('mycurrent')")    #Save Configuration
-multimeter.write("dmm.setconfig('"+channel_parameters['current_channels_string']+"','mycurrent')")
+    #Set current configuration (one voltage channel reserved to measure the current)
+    multimeter.write("dmm.configure.set('mycurrent')")    #Save Configuration
+    multimeter.write("dmm.setconfig('"+channel_parameters['current_channels_string']+"','mycurrent')")
 
-#Set temperature configuration
-multimeter.write('dmm.func = "temperature"')    #Set measurement function: Temperature
-multimeter.write('dmm.transducer = dmm.TEMP_THERMOCOUPLE')    #Type of transducer: Thermocouple
-multimeter.write('dmm.thermocouple = dmm.THERMOCOUPLE_K')    #Type of thermocouple: K
-multimeter.write("dmm.configure.set('mythermocouple')")    #Save Configuration   
-multimeter.write("dmm.setconfig('"+channel_parameters['temperature_channels_string']+"','mythermocouple')")    #Assign configuration to channels
+    #Set temperature configuration
+    multimeter.write('dmm.func = "temperature"')    #Set measurement function: Temperature
+    multimeter.write('dmm.transducer = dmm.TEMP_THERMOCOUPLE')    #Type of transducer: Thermocouple
+    multimeter.write('dmm.thermocouple = dmm.THERMOCOUPLE_K')    #Type of thermocouple: K
+    multimeter.write("dmm.configure.set('mythermocouple')")    #Save Configuration   
+    multimeter.write("dmm.setconfig('"+channel_parameters['temperature_channels_string']+"','mythermocouple')")    #Assign configuration to channels
 
 
 try:        
@@ -118,8 +121,9 @@ try:
         '''
         This function creates the buffer with a certain capacity
         '''
-        multimeter.write(str(bufferName)+'=dmm.makebuffer('+str(_bufferSize)+')')    #Configure the reading buffer
-        multimeter.write(str(bufferName)+'.clear()')      
+        with multimeter_lock:
+            multimeter.write(str(bufferName)+'=dmm.makebuffer('+str(_bufferSize)+')')    #Configure the reading buffer
+            multimeter.write(str(bufferName)+'.clear()')      
         
       
     def prepare_Scan(_n_total_channels,_nScansPerSemicicle):
@@ -127,18 +131,19 @@ try:
         This function sets the number of channels and remains quiet till a trigger is sent.
         '''
         #Whether the first channel of the scan waits for the channel stimulus event to be satisfied before closing   
-        multimeter.write('scan.bypass=scan.OFF')    
-        
-        #Creates an scan with a fixed number of voltage channels and adds a scan for the temperature channels
-        multimeter.write("scan.create('"+channel_parameters['voltage_channels_string']+"','mydcvolts')")
-        multimeter.write("scan.add('"+channel_parameters['temperature_channels_string']+"','mythermocouple')")
-        multimeter.write("scan.add('"+channel_parameters['current_channels_string']+"','mycurrent')")
-        
-        
-        #Prepares the scan to be waiting for a trigger
-        multimeter.write('scan.trigger.arm.stimulus = 40')    #Which event starts the scan, 40 = trigger via GPIB, a *trg message
-        multimeter.write("scan.scancount="+str(_nScansPerSemicicle))
-        multimeter.write('scan.background('+str(bufferName)+')')
+        with multimeter_lock:
+            multimeter.write('scan.bypass=scan.OFF')    
+            
+            #Creates an scan with a fixed number of voltage channels and adds a scan for the temperature channels
+            multimeter.write("scan.create('"+channel_parameters['voltage_channels_string']+"','mydcvolts')")
+            multimeter.write("scan.add('"+channel_parameters['temperature_channels_string']+"','mythermocouple')")
+            multimeter.write("scan.add('"+channel_parameters['current_channels_string']+"','mycurrent')")
+            
+            
+            #Prepares the scan to be waiting for a trigger
+            multimeter.write('scan.trigger.arm.stimulus = 40')    #Which event starts the scan, 40 = trigger via GPIB, a *trg message
+            multimeter.write("scan.scancount="+str(_nScansPerSemicicle))
+            multimeter.write('scan.background('+str(bufferName)+')')
         
       
     def start_scan_multimeter():
@@ -146,9 +151,9 @@ try:
         This function sends the trigger to the Keithley Multimeter in order to make the measures
         in a predetermined time (when current is low or high)
         '''
-        
-        multimeter.write('*TRG')   #This command sends the trigger to the multimeter in order to make a measure
-         
+        with multimeter_lock:
+            multimeter.write('*TRG')   #This command sends the trigger to the multimeter in order to make a measure
+            
        
         
     def read_multimeter_buffer_and_write_to_file(_csv_file_path, _n_total_channels, _cycle_count): 
@@ -156,8 +161,23 @@ try:
         This function acquire the stored data in the multimeter buffer and write all the information needed to the csv file
         '''
         #ASK for the stored data (and make few superficial changes)
-        acq_data = multimeter.query('printbuffer(1,'+str(bufferSize)+','+str(bufferName)+')').replace("\n","").split(",")
-        print('Cycle {}:'.format(cycle_count), acq_data)
+        if stop == 1:
+            return
+        try:
+            with multimeter_lock:
+                acq_data = multimeter.query(
+                    f'printbuffer(1,{bufferSize},{bufferName})'
+                ).replace("\n", "").split(",")
+
+        except Exception as e:
+            print(f"Read error: {e}")
+            return
+
+        if len(acq_data) != bufferSize:
+            print(f"WARNING: expected {bufferSize}, got {len(acq_data)}")
+            return
+
+        print(f'Cycle {_cycle_count}:', acq_data)
         
         #As the acq_data contains the two scans, it has to be separated. One scan= n_channels measures
         acq_data_high = acq_data[:(_n_total_channels)]    #When current is high, one scan is made. As this scans is done first the array is divided from the index 0 to n_channels.
@@ -300,8 +320,9 @@ try:
             electronic_load.write('*TRG')    #Send the trigger
             
             electronic_load.write('INPUT OFF')    #Impose that the instrument switch its input off
-            multimeter.write('reset()')
-            
+            with multimeter_lock:
+                multimeter.write('reset()')
+                
             global rm
             rm.close()
             rm = None
