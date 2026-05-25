@@ -151,6 +151,8 @@ try:
         This function sends the trigger to the Keithley Multimeter in order to make the measures
         in a predetermined time (when current is low or high)
         '''
+        if stop == 1:
+            return
         with multimeter_lock:
             multimeter.write('*TRG')   #This command sends the trigger to the multimeter in order to make a measure
             
@@ -324,7 +326,7 @@ try:
                 multimeter.write('reset()')
                 
             global rm
-            rm.close()
+            # rm.close()
             rm = None
             #gc.collect()
             
