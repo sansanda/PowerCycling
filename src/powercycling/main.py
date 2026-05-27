@@ -23,7 +23,7 @@ from utilities.validators.validators import validate_time_parameters
 
 
 SRC_ROOT = Path(__file__).resolve().parents[1]
-CONTEXT_FILE = SRC_ROOT / "context2.txt"
+CONTEXT_FILE = SRC_ROOT / "context3.txt"
 logging.basicConfig(
     filename="powercycling.log",
     level=logging.INFO
