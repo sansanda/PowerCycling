@@ -23,7 +23,7 @@ Time measure high=4
 Time measure low=1
 *Time measure low=28*
 
-Time transfer data=9
+Time transfer data=6
 *at low semiperiod*
 
 Voltage channels=1011:1018
