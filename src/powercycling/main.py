@@ -4,13 +4,12 @@ Created on 2 jul. 2019
 @author: sansanda
 
 requires python 3.11.6
-
-
 """
 
 import logging
+import time
+import msvcrt
 import pyvisa as visa
-import threading 
 import sys
 from pathlib import Path 
 
@@ -55,7 +54,7 @@ csv_connection.create_csv_file(SRC_ROOT / file_parameters['csv_file_path'], fiel
 
 #COUNTER OF CYCLES DONE AND A STOP BUTTON
 cycle_count = 0   #Initialize the number of cycles 
-stop = 0    #Boolean in order to stop the electronic load whenever necessary. 
+stop = False    #Boolean in order to stop the electronic load whenever necessary. 
 
 
 #DEFINING THE BUFFER CHARACTERISTICS
@@ -68,6 +67,10 @@ bufferName = "reading_buffer"
 #OPENING THE RESOURCE MANAGER
 rm = visa.ResourceManager()
 
+#TAKE CONTROLLER-IN-CHARGE STATUS ON THE GPIB BUS
+gpib_interface = rm.open_resource('GPIB0::INTFC')
+gpib_interface.send_ifc()
+gpib_interface.close()
 
 #COMMUTICATE WITH THE ELECTRONIC LOAD 
 electronic_load = rm.open_resource('GPIB0::'+str(gpib_addrs['electronic_load'])+'::INSTR')   #Assign a variable to the Electronic load by its address
@@ -75,7 +78,29 @@ electronic_load = rm.open_resource('GPIB0::'+str(gpib_addrs['electronic_load'])+
 #COMMUTICATE WITH KEITHLEY MULTIMETER
 multimeter = rm.open_resource('GPIB0::'+str(gpib_addrs['multimeter'])+'::INSTR')   #Assign a variable to the multimeter by its address
 multimeter.timeout = 15000
-multimeter_lock = threading.Lock()
+
+
+def safe_shutdown():
+    try:
+        electronic_load.write('CURR:TRIG {}'.format(current_parameters['curr_low']))    #Set current to low value
+        electronic_load.write('*TRG')    #Send the trigger
+        electronic_load.write('INPUT OFF')    #Impose that the instrument switch its input off
+    except:
+        pass
+
+
+def wait(seconds):
+    '''
+    Waits for the given number of seconds. Returns True if the spacebar was
+    pressed during the wait, False otherwise.
+    '''
+    end_time = time.time() + seconds
+    while time.time() < end_time:
+        if msvcrt.kbhit():
+            if msvcrt.getch() == b' ':
+                return True
+        time.sleep(0.1)
+    return False
 
 
 #SENDING THE FIRST COMMANDS TO CONFIGURE THE ELECTRONIC LOAD
@@ -89,98 +114,84 @@ electronic_load.write('CURR {}'.format(current_parameters['curr_low']))    #The 
 electronic_load.write('INPUT ON')    #Switch on electronic load
 
 
-
 #SENDING THE FIRST COMMANDS TO CONFIGURE KEITHLEY MULTIMETER
-with multimeter_lock:
-    multimeter.write('reset()')    #Reset
-    multimeter.write('localnode.prompts = 0')    #The command messages do not generate prompts in console
-    multimeter.write('localnode.prompts4882 = 0')    #Disable the prompts for the GPIB
+multimeter.clear()                  #GPIB Device Clear — aborts any pending scan from previous run
+multimeter.write('reset()')    #Reset
+multimeter.write('*CLS')            #Clear error queue and status registers
+multimeter.write('errorqueue.clear()')    #Clear TSP error queue
+multimeter.write('localnode.prompts = 0')    #The command messages do not generate prompts in console
+multimeter.write('localnode.prompts4882 = 0')    #Disable the prompts for the GPIB
 
-    #Set voltage configuration
-    multimeter.write('dmm.func = dmm.DC_VOLTS')    #Set measurement function: Voltage
-    multimeter.write('dmm.nplc=1')    #The integration rate in line cycles for the DMM for the function selected by dmm.func.
-    multimeter.write('dmm.range=10')    #Set Range
-    multimeter.write("dmm.configure.set('mydcvolts')")    #Save Configuration
-    multimeter.write("dmm.setconfig('"+channel_parameters['voltage_channels_string']+"','mydcvolts')")
+#Set voltage configuration
+multimeter.write('dmm.func = dmm.DC_VOLTS')    #Set measurement function: Voltage
+multimeter.write('dmm.nplc=1')    #The integration rate in line cycles for the DMM for the function selected by dmm.func.
+multimeter.write('dmm.range=10')    #Set Range
+multimeter.write("dmm.configure.set('mydcvolts')")    #Save Configuration
+multimeter.write("dmm.setconfig('"+channel_parameters['voltage_channels_string']+"','mydcvolts')")
 
-    #Set current configuration (one voltage channel reserved to measure the current)
-    multimeter.write("dmm.configure.set('mycurrent')")    #Save Configuration
-    multimeter.write("dmm.setconfig('"+channel_parameters['current_channels_string']+"','mycurrent')")
+#Set current configuration (one voltage channel reserved to measure the current)
+multimeter.write("dmm.configure.set('mycurrent')")    #Save Configuration
+multimeter.write("dmm.setconfig('"+channel_parameters['current_channels_string']+"','mycurrent')")
 
-    #Set temperature configuration
-    multimeter.write('dmm.func = "temperature"')    #Set measurement function: Temperature
-    multimeter.write('dmm.transducer = dmm.TEMP_THERMOCOUPLE')    #Type of transducer: Thermocouple
-    multimeter.write('dmm.thermocouple = dmm.THERMOCOUPLE_K')    #Type of thermocouple: K
-    multimeter.write("dmm.configure.set('mythermocouple')")    #Save Configuration   
-    multimeter.write("dmm.setconfig('"+channel_parameters['temperature_channels_string']+"','mythermocouple')")    #Assign configuration to channels
+#Set temperature configuration
+multimeter.write('dmm.func = "temperature"')    #Set measurement function: Temperature
+multimeter.write('dmm.transducer = dmm.TEMP_THERMOCOUPLE')    #Type of transducer: Thermocouple
+multimeter.write('dmm.thermocouple = dmm.THERMOCOUPLE_K')    #Type of thermocouple: K
+multimeter.write("dmm.configure.set('mythermocouple')")    #Save Configuration   
+multimeter.write("dmm.setconfig('"+channel_parameters['temperature_channels_string']+"','mythermocouple')")    #Assign configuration to channels
 
 
-try:        
-    #DEFINING PRINCIPAL FUNCTION
+try:
+
+    #DEFINING PRINCIPAL FUNCTIONS
     def make_buffer(_bufferSize):
         '''
         This function creates the buffer with a certain capacity
         '''
-        with multimeter_lock:
-            multimeter.write(str(bufferName)+'=dmm.makebuffer('+str(_bufferSize)+')')    #Configure the reading buffer
-            multimeter.write(str(bufferName)+'.clear()')      
+        multimeter.write('errorqueue.clear()')    #Clear error queue before each cycle
+        multimeter.write(str(bufferName)+'=dmm.makebuffer('+str(_bufferSize)+')')    #Configure the reading buffer
+        multimeter.write(str(bufferName)+'.clear()')      
         
       
-    def prepare_Scan(_n_total_channels,_nScansPerSemicicle):
+    def prepare_Scan(_n_total_channels, _nScansPerSemicicle):
         '''
         This function sets the number of channels and remains quiet till a trigger is sent.
         '''
         #Whether the first channel of the scan waits for the channel stimulus event to be satisfied before closing   
-        with multimeter_lock:
-            multimeter.write('scan.bypass=scan.OFF')    
-            
-            #Creates an scan with a fixed number of voltage channels and adds a scan for the temperature channels
-            multimeter.write("scan.create('"+channel_parameters['voltage_channels_string']+"','mydcvolts')")
-            multimeter.write("scan.add('"+channel_parameters['temperature_channels_string']+"','mythermocouple')")
-            multimeter.write("scan.add('"+channel_parameters['current_channels_string']+"','mycurrent')")
-            
-            
-            #Prepares the scan to be waiting for a trigger
-            multimeter.write('scan.trigger.arm.stimulus = 40')    #Which event starts the scan, 40 = trigger via GPIB, a *trg message
-            multimeter.write("scan.scancount="+str(_nScansPerSemicicle))
-            multimeter.write('scan.background('+str(bufferName)+')')
+        multimeter.write('scan.bypass=scan.OFF')    
+        
+        #Creates an scan with a fixed number of voltage channels and adds a scan for the temperature channels
+        multimeter.write("scan.create('"+channel_parameters['voltage_channels_string']+"','mydcvolts')")
+        multimeter.write("scan.add('"+channel_parameters['temperature_channels_string']+"','mythermocouple')")
+        multimeter.write("scan.add('"+channel_parameters['current_channels_string']+"','mycurrent')")
+        
+        #Prepares the scan to be waiting for a trigger
+        multimeter.write('scan.trigger.arm.stimulus = 40')    #Which event starts the scan, 40 = trigger via GPIB, a *trg message
+        multimeter.write("scan.scancount="+str(_nScansPerSemicicle))
+        multimeter.write('scan.background('+str(bufferName)+')')
         
       
-    def start_scan_multimeter():
-        '''
-        This function sends the trigger to the Keithley Multimeter in order to make the measures
-        in a predetermined time (when current is low or high)
-        '''
-        if stop == 1:
-            return
-        with multimeter_lock:
-            multimeter.write('*TRG')   #This command sends the trigger to the multimeter in order to make a measure
-            
-       
-        
     def read_multimeter_buffer_and_write_to_file(_csv_file_path, _n_total_channels, _cycle_count): 
         '''
-        This function acquire the stored data in the multimeter buffer and write all the information needed to the csv file
+        This function acquires the stored data in the multimeter buffer and writes all the information needed to the csv file
         '''
         #ASK for the stored data (and make few superficial changes)
-        if stop == 1:
-            return
         try:
-            with multimeter_lock:
-                acq_data = multimeter.query(
-                    f'printbuffer(1,{bufferSize},{bufferName})'
-                ).replace("\n", "").split(",")
-
+            acq_data = multimeter.query(
+                f'printbuffer(1,{bufferSize},{bufferName})'
+            ).replace("\n", "").split(",")
         except Exception as e:
+            logging.error(f'Read error cycle {_cycle_count}: {e}')
             print(f"Read error: {e}")
             return
 
         if len(acq_data) != bufferSize:
+            logging.warning(f'Cycle {_cycle_count}: expected {bufferSize} readings, got {len(acq_data)}')
             print(f"WARNING: expected {bufferSize}, got {len(acq_data)}")
             return
 
         print(f'Cycle {_cycle_count}:', acq_data)
-        
+
         #As the acq_data contains the two scans, it has to be separated. One scan= n_channels measures
         acq_data_high = acq_data[:(_n_total_channels)]    #When current is high, one scan is made. As this scans is done first the array is divided from the index 0 to n_channels.
         acq_data_low = acq_data[(_n_total_channels):]    #When current is low, the other scans is made. 
@@ -194,169 +205,88 @@ try:
         const_low.extend(acq_data_low)
        
         #WRITING THE VALUES TO THE CSV FILE
-        csv_connection.insertRowInCSV(_csv_file_path,const_high)
-        csv_connection.insertRowInCSV(_csv_file_path,const_low)
-        
-        
-        
-    def trg_up(_curr_low,_curr_high, _t_on, _t_off, _t_measure_high, _t_measure_low, _t_transfer_data):
-        '''
-        This function sends triggers to the electronic load in order to rise the current from the lower 
-        value to the high value. Then the current remains in the higher state until the time is finished.
-        It will be continuously running, unless the stop button is pulsed. Moreover, in a chosen time, 
-        the function 'send trigger' is called, so the measures corresponding to 1 scan, will be registered.
-        '''
-        
-        #Timers
-        #Configure a timer which calls the function trg_down when the _t_on finishes
-        timer_on = threading.Timer(_t_on, trg_down, [_curr_low,_curr_high, _t_on, _t_off, _t_measure_high, _t_measure_low,_t_transfer_data])
-        #Configure another timer to claim that the measures will be done at a chosen time: t_measure_high, when the current is high.
-        timer_measure_high = threading.Timer(_t_measure_high, start_scan_multimeter)
-            
-            
-        if stop == 0: #Nobody has pressed the stop button 
-                    
-            make_buffer(bufferSize)  
-            prepare_Scan(channel_parameters['number_total_channels'],nScansPerSemicicle)
-            
-                  
-            global cycle_count    #As cycle_count is not an argument of the function, the variable must be global
-            cycle_count = cycle_count + 1    #It increased at each rising current edge
-            
-            #Commands  low>high
-            electronic_load.write('CURR:TRIG {}'.format(_curr_high))    #Intensity value on memory, Preset
-            electronic_load.write('*TRG')    #Send trigger signal
-            
-            #Start the timers
-            timer_on.start()     
-            timer_measure_high.start()
-            
-            
-        if stop == 1:    #Someone has pressed the stop button
-            
-            print("CANCELLING THE PROCESS!!!!!!!")
-            print("CANCELLING THE PROCESS!!!!!!!")
-            print("CANCELLING THE PROCESS!!!!!!!")
-            
-            #Timers are closed in order to avoid errors
-            timer_on.cancel()
-            timer_on = None
-            timer_measure_high.cancel()
-            timer_measure_high = None
-            
-            
-        
-    
-    def trg_down(_curr_low,_curr_high, _t_on, _t_off, _t_measure_high, _t_measure_low, _t_transfer_data):
-        """
-        This function sends triggers to the electronic load in order to come down the current from the high
-        value to the low value. Then the current remains in the lower state until the time is finished.
-        It will be continuously running, unless the stop button is pulsed. Moreover, in a chosen time,
-        the function 'send trigger' is called, so the measures corresponding to 1 scan, will be registered.
-        """
-        
-        #Timers
-        #Configure a timer that calls the function trg_up (when the _t_off finishes).
+        csv_connection.insertRowInCSV(_csv_file_path, const_high)
+        csv_connection.insertRowInCSV(_csv_file_path, const_low)
 
-        timer_off = threading.Timer(
-            _t_off,
-            trg_up,
-            [_curr_low,_curr_high, _t_on, _t_off, _t_measure_high, _t_measure_low, _t_transfer_data]
-        )
-        #The two functions (trg_up and trg_down) will be calling each other for ever and ever, except someone pushes the stop button (=space bar)
-        #Another timer to claim that the measures will be done at a chosen time: t_measure_on, when the current is low.
-        timer_measure_low = threading.Timer(_t_measure_low, start_scan_multimeter)
-        
-        #In this case, when the cycle has finished and the current is low, the store data (two scans) in the buffer has to be transfered via GPIB.
-        #That is for releasing the buffer capacity  
-        timer_transfer = threading.Timer(
-            _t_transfer_data,
-            read_multimeter_buffer_and_write_to_file,
-            [
-                SRC_ROOT / file_parameters['csv_file_path'], 
-                channel_parameters['number_total_channels'],
-                cycle_count
-             ]
-        )
-    
-      
-        if stop == 0:
-                    
-            #Commands
-            electronic_load.write('CURR:TRIG {}'.format(_curr_low))    #Intensity value on memory, Preset
-            
-            electronic_load.write('*TRG')    #Send trigger signal
-           
-            #Start the timers
-            timer_off.start() 
-            timer_measure_low.start()
-            timer_transfer.start()
-            
-        if stop == 1:
-            
-            print("CANCELLING THE PROCESS!!!!!!!")
-            print("CANCELLING THE PROCESS!!!!!!!")
-            print("CANCELLING THE PROCESS!!!!!!!")
-            
-            timer_off.cancel()
-            timer_off = None
-            timer_measure_low.cancel()
-            timer_measure_low = None
-            timer_transfer.cancel()
-            timer_transfer = None
-            
-    
-    
-    def emergency_stop():
-        """
-        Detects the space bar key pressed on the console, and stops the electronic load, 
-        setting the current value to zero immediately.
-        """
-        if sys.stdin.read(1) == ' ':    #Detects when the space bar is pressed
-            
-            print('STOP!!!')
-            global stop    #Stop is converted to a global variable
-            stop = 1    #'trg_up'and'trg_down' will stop executing
-            
-            electronic_load.write('CURR:TRIG 0')    #Intensity value ZERO on memory, Preset
-            electronic_load.write('*TRG')    #Send the trigger
-            
-            electronic_load.write('INPUT OFF')    #Impose that the instrument switch its input off
-            with multimeter_lock:
-                multimeter.write('reset()')
-                
-            global rm
-            # rm.close()
-            rm = None
-            #gc.collect()
-            
-        #To stop the program 'space bar' and then 'enter' must be pressed in the console!  
 
-    #TIMER WITH A INITIAL DELAY TO START THE PROGRAM   
-    timer_initial = threading.Timer(
-    time_parameters['initial_delay'],
-    trg_up,
-    [
-        current_parameters['curr_low'],
-        current_parameters['curr_high'],
-        time_parameters['t_on'],
-        time_parameters['t_off'],
-        time_parameters['t_measure_high'],
-        time_parameters['t_measure_low'],
-        time_parameters['t_transfer_data']
-    ]
-    )
-    
-    #The initial timer is created to prevent unwanted transients or similar incidents
-    #It allows the trg_up function to start running 
-    timer_initial.start()    #The timer is started 
-    
-    
-    #OPEN A THREAD TO ALLOW THE STOP BUTTON TO RUN IN PARALEL THE CODE
-    stop_thread = threading.Thread(target=emergency_stop)
-    # It is continually running independently the other code,
-    # so whenever the space bar is pressed, it will be registered
-    stop_thread.start()    #The thread is initialized
+    #INITIAL DELAY BEFORE THE PROGRAM STARTS
+    #The initial delay is created to prevent unwanted transients or similar incidents
+    print(f'Waiting {time_parameters["initial_delay"]}s initial delay...')
+    if wait(time_parameters['initial_delay']):
+        print('STOP!!!')
+        safe_shutdown()
+        rm.close()
+        exit()
+
+
+    #MAIN CYCLE LOOP
+    #To stop the program press the spacebar at any point
+    while not stop:
+
+        #=== PREPARE BUFFER AND SCAN FOR THIS CYCLE ===
+        make_buffer(bufferSize)
+        prepare_Scan(channel_parameters['number_total_channels'], nScansPerSemicicle)
+
+        cycle_count = cycle_count + 1    #It increased at each rising current edge
+
+        #=== HIGH CURRENT SEMICYCLE ===
+        #Commands low>high
+        electronic_load.write('CURR:TRIG {}'.format(current_parameters['curr_high']))    #Intensity value on memory, Preset
+        electronic_load.write('*TRG')    #Send trigger signal
+
+        #Wait until the measure time during the high semicycle
+        if wait(time_parameters['t_measure_high']):
+            stop = True
+            break
+
+        #Send trigger to multimeter to take the high current measurement
+        multimeter.write('*TRG')   #This command sends the trigger to the multimeter in order to make a measure
+
+        #Wait for the rest of the ON period
+        if wait(time_parameters['t_on'] - time_parameters['t_measure_high']):
+            stop = True
+            break
+
+        #=== LOW CURRENT SEMICYCLE ===
+        #Commands high>low
+        electronic_load.write('CURR:TRIG {}'.format(current_parameters['curr_low']))    #Intensity value on memory, Preset
+        electronic_load.write('*TRG')    #Send trigger signal
+
+        #Wait until the measure time during the low semicycle
+        if wait(time_parameters['t_measure_low']):
+            stop = True
+            break
+
+        #Send trigger to multimeter to take the low current measurement
+        multimeter.write('*TRG')   #This command sends the trigger to the multimeter in order to make a measure
+
+        #Wait until the data transfer time
+        #That is for releasing the buffer capacity
+        if wait(time_parameters['t_transfer_data'] - time_parameters['t_measure_low']):
+            stop = True
+            break
+
+        #=== DATA TRANSFER ===
+        #Read the buffer and write the data to the CSV file
+        read_multimeter_buffer_and_write_to_file(
+            SRC_ROOT / file_parameters['csv_file_path'],
+            channel_parameters['number_total_channels'],
+            cycle_count
+        )
+
+        #Wait for the rest of the OFF period
+        if wait(time_parameters['t_off'] - time_parameters['t_transfer_data']):
+            stop = True
+            break
+
+
+    #STOP REQUESTED — SAFE SHUTDOWN
+    print('STOP!!!')
+    logging.info(f'Test stopped by user after {cycle_count} cycles')
+    safe_shutdown()
+    multimeter.write('reset()')
+    rm.close()
+
 
 except visa.VisaIOError as e:
 
@@ -366,24 +296,6 @@ except visa.VisaIOError as e:
     print("HOlaaaa VISA ERROR")
     print(e.args)
 
-    # try:
-    #     print("rm.last_status:", rm.last_status)
-    #     print("rm.visalib.last_status:", rm.visalib.last_status)
-    # except Exception:
-    #     print("Unable to read VISA status")
-
-    # # Resource busy
-    # if e.error_code == visa.constants.StatusCode.error_resource_busy:
-    #     print("The VISA resource is busy!")
-
-    # # Timeout
-    # elif e.error_code == visa.constants.StatusCode.error_timeout:
-    #     print("VISA timeout detected!")
-
-    # # Generic VISA error
-    # else:
-    #     print(f"Unhandled VISA error: {e.error_code}")
-
     # Safe shutdown
     try:
         electronic_load.write('INPUT OFF')
@@ -391,5 +303,9 @@ except visa.VisaIOError as e:
     except Exception as shutdown_error:
         print("Unable to disable electronic load")
         print(shutdown_error)
-    
 
+except Exception as e:
+
+    logging.error(f'Unhandled exception: {e}')
+    print(e)
+    safe_shutdown()

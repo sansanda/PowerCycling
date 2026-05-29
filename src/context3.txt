@@ -4,7 +4,7 @@ Keithley 3706 GPIBAddr=25
 
 Current low=0.1
 
-Current high=10
+Current high=1
 
 Slew Rate=1E2
 
@@ -23,14 +23,14 @@ Time measure high=4
 Time measure low=1
 *Time measure low=28*
 
-Time transfer data=6
+Time transfer data=7
 *at low semiperiod*
 
 Voltage channels=1011:1018
 Temperature channels=1022:1023
 Current channel=1001:1001
 
-Current Range=12
+Current Range=1
 *Low:0-6A, High:0-60A*
 
 Csv file path=.\powercycling\result_files\power_cycling_results.csv
