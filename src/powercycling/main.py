@@ -79,7 +79,6 @@ electronic_load = rm.open_resource('GPIB0::'+str(gpib_addrs['electronic_load'])+
 multimeter = rm.open_resource('GPIB0::'+str(gpib_addrs['multimeter'])+'::INSTR')   #Assign a variable to the multimeter by its address
 multimeter.timeout = 15000
 
-
 def safe_shutdown():
     try:
         electronic_load.write('CURR:TRIG {}'.format(current_parameters['curr_low']))    #Set current to low value
@@ -228,6 +227,10 @@ try:
         prepare_Scan(channel_parameters['number_total_channels'], nScansPerSemicicle)
 
         cycle_count = cycle_count + 1    #It increased at each rising current edge
+        
+        # if cycle_count == 3:  #Force an error
+        #     raise visa.VisaIOError(-1073807339)
+                                   
 
         #=== HIGH CURRENT SEMICYCLE ===
         #Commands low>high
