@@ -22,6 +22,14 @@ from utilities.validators.validators import validate_time_parameters
 
 
 SRC_ROOT = Path(__file__).resolve().parents[1]
+# if getattr(sys, 'frozen', False):
+#     # Estamos dentro del .exe compilado
+#     # sys.executable = ruta al .exe, ej: C:\herramienta\powercycling.exe
+#     # .parent = la carpeta que lo contiene, ej: C:\herramienta\
+#     SRC_ROOT = Path(sys.executable).parent
+# else:
+#     # Estamos ejecutando el .py normal, como siempre
+#     SRC_ROOT = Path(__file__).resolve().parents[1]
 CONTEXT_FILE = SRC_ROOT / "context3.txt"
 logging.basicConfig(
     filename="powercycling.log",
